@@ -1,0 +1,82 @@
+---
+title: "Facebook粉絲團分析（分析專頁：柯文哲）"
+output: github_document
+---
+分析台北市長柯文哲在2016/01/01至5/23的貼文
+
+
+##柯P粉絲團資料
+```{r}
+if (!require('Rfacebook')){
+    #install.packages("Rfacebook")
+    library(Rfacebook)
+}
+```
+
+```{r}
+# token<-'EAACEdEose0cBADDLxHp7aaZAI3VXcMGRPgoOIZA2mnM14L42ZCJkvRgI1IjtaBwJ3j1SdHZCJeCVtQVlCwJXqy2ExlUSMiBTG9p6XDJ7TidCoioDiMWvxjUOGRhCVbTJhoE72BDNRRmnMo8wHLMchRzxDamGd8wmZBAkmKE1duwZDZD'
+totalPage<-NULL
+lastDate<-Sys.Date()
+DateVectorStr<-as.character(seq(as.Date("2016-01-01"),lastDate,by="5 days"))
+for(i in 1:(length(DateVectorStr)-1)){
+    tempPage<-getPage("DoctorKoWJ", token,
+                      since = DateVectorStr[i],until = DateVectorStr[i+1])
+    totalPage<-rbind(totalPage,tempPage)
+}
+```
+
+```{r}
+nrow(totalPage)
+```
+
+
+粉絲團從2016/1/1至2016/5/23一共71篇文章
+
+##每日發文數分析
+```{r}
+totalPage$datetime <- as.POSIXct(totalPage$created_time, 
+      format = "%Y-%m-%dT%H:%M:%S+0000",  tz = "GMT") 
+2016-01-16 
+totalPage$dateTPE <- format(totalPage$datetime, "%Y-%m-%d",  tz = "Asia/Taipei") 
+2016-01-16
+totalPage$weekdays <-weekdays(as.Date(totalPage$dateTPE))
+PostCount<-aggregate(id~weekdays+dateTPE,totalPage,length)
+library(knitr)
+kable(head(PostCount[order(PostCount$id,decreasing = T),]))
+```
+
+discuss : 
+
+reading data，把fb的created_time轉成清楚的日期，再利用weekdays函數即能得知發文那天是禮拜幾。輸出的結果可以發現，柯文哲通常一到四天內會發文，而在星期五、六日有時會一天發兩篇以上。在1/9可以看到他發了四篇文，這是從今年1/1以來單日發文最多的一天。那為甚麼這一天的發文會那麼多呢?查了一下totalPage之後發現原來柯文哲這天是在騎腳踏車，發文可能是想讓大家知道他現在騎到哪了。
+
+##day likes
+```{r echo=T}
+output<-aggregate(likes_count~weekdays+dateTPE,totalPage,mean)
+library(knitr)
+kable(head(output[order(output$likes_count,decreasing = T),]))
+```
+
+discuss : 
+
+輸出結果發現，柯P每篇貼文大都獲得10000up的likes，但3/22之後都在10000之下，我們猜測是因為時間離現在較近，累積的likes不如以前多。
+就3/28能在短時間內獲得10幾萬個likes，恐怖的兇殺案件的文，這類文往往能產生共鳴，所以這應是獲得這麼多likes的原因。
+1/16，柯文哲的一篇文章獲得近33萬的like，這是今年最多likes的文，這篇發文是跟蔡英文當選總統有關，或許有追蹤柯P的人可能也喜歡蔡英文。
+
+##day comments
+```{r echo=T}
+output<-aggregate(comments_count~dateTPE,totalPage,mean)
+library(knitr)
+kable(head(output[order(output$comments_count,decreasing = T),]))
+```
+
+討論:從輸出的結果可以發現，柯文哲每一篇貼文大都獲得500以上的comments數，而在1/9，1/10兩天的comments都超過5000，這兩天的發文都是跟柯文哲騎腳踏車有關，而從comments的內容來看，我們可以看到很多篇關於市長加油的留言，看來comments那麼多的原因應該是因為粉絲希望柯文哲能趕快完成北高雙城挑戰，而上面也充滿了很多其他篇較少看到的正面留言。
+
+##day shares
+```{r echo=T}
+output<-aggregate(shares_count~dateTPE,totalPage,mean)
+library(knitr)
+kable(head(output[order(output$shares_count,decreasing = T),]))
+```
+
+discuss : 
+輸出結果發現，柯P每篇發文平均獲得100up的shares，1/14的shares更超過34000，這篇發文是關於夢想的心路歷程，一樣跟北高雙城挑戰有關，獲得這麼多shares的原因應為大家對於柯文哲不放棄的精神都有感，所以分享這則發文；2/28這天，發文的shares大於10000次，內容為希望記取228歷史的教訓，一樣是勵志的發文，這是他能獲得較多shares的原因。
