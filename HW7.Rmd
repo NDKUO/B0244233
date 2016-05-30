@@ -1,0 +1,93 @@
+---
+title: "糖尿病的預測模型"
+output: github_document
+---
+
+## 資料前處理
+
+### 資料讀取
+
+資料來源為UCI Machine Learning Repository。
+
+資料記載可能的因素來預測女性是否為糖尿病患者，共有八個參數。
+
+分類結果為二元分類，非糖尿病患者(neg)&糖尿病患者(pos) 。
+
+```{r message=F,warning=F}
+#install.packages("mlbench")
+library(mlbench)
+data(PimaIndiansDiabetes)
+str(PimaIndiansDiabetes) 
+```
+
+### 留下無缺值的資料
+
+```{r message=F,warning=F}
+PimaIndiansDiabetesC<-
+    PimaIndiansDiabetes[complete.cases(PimaIndiansDiabetes),] 
+c(nrow(PimaIndiansDiabetes),nrow(PimaIndiansDiabetesC))
+```
+
+### 將資料隨機分為訓練組與測試組
+
+隨機將2/3的資料分到訓練組（Test==F），
+剩下1/3為測試組（Test==T）將有糖尿病症狀的人放在level1
+
+```{r}
+PimaIndiansDiabetesC$Test<-F 
+PimaIndiansDiabetesC[sample(1:nrow(PimaIndiansDiabetesC),nrow(PimaIndiansDiabetesC)/3),]$Test<-T
+PimaIndiansDiabetesC$diabetes<-factor(PimaIndiansDiabetesC$diabetes,levels=c("pos","neg"))
+c(sum(PimaIndiansDiabetesC$Test==F),sum(PimaIndiansDiabetesC$Test==T))
+```
+
+訓練組案例數為`r sum(PimaIndiansDiabetesC$Test==F)`，
+測試組案例數為`r sum(PimaIndiansDiabetesC$Test==T)`
+
+## 預測模型建立
+
+### 模型建立
+   
+變數相當多，多為連續變項，輸出為二元的類別變項，
+所以選擇邏輯迴歸演算法建立模型，使用雙向逐步選擇最佳參數組合。
+
+```{r warning=F,message=F}
+
+fit<-glm(diabetes~., PimaIndiansDiabetesC[PimaIndiansDiabetesC$Test==F,],family="binomial")
+
+#install.packages("MASS")
+
+library(MASS)
+finalFit<-stepAIC(fit,direction = "both",trace = F)
+summary(finalFit)$coefficients
+```
+
+### 模型說明
+
+上述參數知，以邏輯迴歸建立模型預測是否為糖尿病患者，經最佳化後，
+模型使用參數為`r rownames(summary(finalFit)$coefficient)[-1]`，
+共`r nrow(summary(finalFit)$coefficient)`個參數，
+各參數代表每一個可能的因素
+ 
+## 預測模型驗證
+
+```{r warning=F,message=F,fig.height=4.5}
+DiabPred<-predict(finalFit,newdata = PimaIndiansDiabetesC[PimaIndiansDiabetesC$Test==T,])
+DiabAns<-ifelse(DiabPred<0.5,"pos","neg") 
+DiabAns<-factor(DiabAns,levels = c("pos","neg"))
+#install.packages("caret")
+
+library(caret)
+round(sensitivity(DiabAns,PimaIndiansDiabetesC[PimaIndiansDiabetesC$Test==T,]$diabetes),digit = 2)
+round(specificity(DiabAns,PimaIndiansDiabetesC[PimaIndiansDiabetesC$Test==T,]$diabetes),digit = 2)
+round(posPredValue(DiabAns,PimaIndiansDiabetesC[PimaIndiansDiabetesC$Test==T,]$diabetes),digit = 2)
+round(negPredValue(DiabAns,PimaIndiansDiabetesC[PimaIndiansDiabetesC$Test==T,]$diabetes),digit = 2)
+```
+
+從不同女性得到的相關資料，經過邏輯回歸模型預測是否為糖尿病患者，可得：
+
+- 1.敏感度 `r round(sensitivity(DiabAns,PimaIndiansDiabetesC[PimaIndiansDiabetesC$Test==T,]$diabetes)*100,digit = 2)`%
+- 2.特異性 `r round(specificity(DiabAns,PimaIndiansDiabetesC[PimaIndiansDiabetesC$Test==T,]$diabetes)*100,digit = 2)`%
+- 3.預測率
+- 陽性預測率 `r round(posPredValue(DiabAns,PimaIndiansDiabetesC[PimaIndiansDiabetesC$Test==T,]$diabetes)*100,digit = 2)`%
+- 陰性預測率 `r round(negPredValue(DiabAns,PimaIndiansDiabetesC[PimaIndiansDiabetesC$Test==T,]$diabetes)*100,digit = 2)`%
+我們為了觀看
